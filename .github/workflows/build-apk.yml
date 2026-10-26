@@ -59,6 +59,9 @@ jobs:
             npx cap add android
           fi
           npx cap sync android
+          if [ -f "android/variables.gradle" ]; then
+            sed -i "s/coreSplashScreenVersion = '1.2.0'/coreSplashScreenVersion = '1.0.1'/g" android/variables.gradle || true
+          fi
 
       - name: ☕ Set up JDK 21
         uses: actions/setup-java@v5
