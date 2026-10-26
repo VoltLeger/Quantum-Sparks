@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Тег релиза (например: v1.2.0)'
+        description: 'Тег для ручной сборки релиза (например: v1.2.0)'
         required: false
         default: 'v1.2.0'
         type: string
@@ -55,7 +55,7 @@ jobs:
       - name: 📲 Prepare Capacitor Android Platform
         run: |
           if [ ! -d "android" ]; then
-            echo "Папка android не найдена, создаём платформу на лету..."
+            echo "Папка android не найдена, инициализируем платформу Android..."
             npx cap add android
           fi
           npx cap sync android
@@ -68,34 +68,38 @@ jobs:
 
       - name: 🐘 Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          build-root-directory: android
 
-      - name: 📜 Accept Android SDK Licenses
+      - name: 📜 Accept Android SDK Licenses & Install Components
         run: |
-          mkdir -p "$ANDROID_HOME/licenses" || true
-          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > "$ANDROID_HOME/licenses/android-sdk-license" || true
-          echo "84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_HOME/licenses/android-sdk-preview-license" || true
+          ANDROID_SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          mkdir -p "$ANDROID_SDK/licenses" || true
+          yes | "$ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          "$ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
 
       - name: 🔑 Prepare environment & debug keystore
         run: |
           touch .env
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
+          fi
           cd android
           mkdir -p app
           if [ ! -f "app/debug.keystore" ]; then
-            keytool -genkey -v -keystore app/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
+            cp ~/.android/debug.keystore app/debug.keystore || true
           fi
           chmod +x gradlew
 
       - name: 🏗️ Build Debug APK with Gradle
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace --no-daemon -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m"
+          ./gradlew assembleDebug --stacktrace --no-daemon --console=plain -Dorg.gradle.workers.max=2 -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m"
 
       - name: 📦 Prepare APK for distribution
         run: |
           mkdir -p release-artifacts
           
+          # Определение версии и тега (ровно один релиз)
           VERSION_TAG="${{ github.event.release.tag_name }}"
           if [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "null" ]; then
             if [ -n "${{ inputs.release_tag }}" ]; then
@@ -108,6 +112,7 @@ jobs:
 
           echo "RESOLVED_VERSION_TAG=${VERSION_TAG}" >> $GITHUB_ENV
 
+          # Поиск собранного APK
           APK_FILE=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -n 1)
           if [ -z "$APK_FILE" ] || [ ! -f "$APK_FILE" ]; then
             echo "::error::Не удалось найти собранный APK файл!"
