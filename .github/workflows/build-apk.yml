@@ -1,0 +1,133 @@
+name: Build & Release Debug APK
+
+on:
+  push:
+    branches:
+      - '**'
+    tags:
+      - '**'
+  pull_request:
+  release:
+    types: [published, created, edited, released]
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create or update a GitHub Release for this run'
+        required: false
+        default: true
+        type: boolean
+      release_tag:
+        description: 'Tag for the release (e.g. v1.2.0)'
+        required: false
+        default: 'v1.2.0'
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: 🚀 Build Debug APK & Publish Release
+    runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: "--no-deprecation"
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🟢 Set up Node.js 22 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 📦 Install Node Dependencies
+        run: |
+          npm install --legacy-peer-deps
+
+      - name: 🔨 Build Web Application (Vite)
+        run: |
+          npm run build
+
+      - name: 📲 Sync Capacitor Android Platform
+        run: |
+          npx cap sync android
+
+      - name: ☕ Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: 🐘 Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 📱 Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 📜 Accept Android SDK Licenses & Install Components
+        run: |
+          ANDROID_SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          mkdir -p "$ANDROID_SDK/licenses" || true
+          yes | $ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
+
+      - name: 🔑 Prepare environment & debug keystore
+        run: |
+          touch .env
+          cd android
+          mkdir -p app
+          if [ ! -f "app/debug.keystore" ]; then
+            keytool -genkey -v -keystore app/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
+          fi
+          chmod +x gradlew
+
+      - name: 🏗️ Build Debug APK with Gradle
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon --no-configuration-cache --stacktrace --console=plain -Dorg.gradle.workers.max=2 -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=512m"
+
+      - name: 📦 Prepare APK for distribution
+        run: |
+          mkdir -p release-artifacts
+          VERSION_TAG="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION_TAG="${{ github.event.release.tag_name }}"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.release_tag }}" ]; then
+            VERSION_TAG="${{ inputs.release_tag }}"
+          fi
+
+          # Если пуш в ветку (main, master и т.д.) - извлекаем версию из package.json
+          if [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "main" ] || [ "$VERSION_TAG" = "master" ] || [[ "$VERSION_TAG" != v* ]]; then
+            PKG_VER=$(node -p "require('./package.json').version || '1.2.0'")
+            VERSION_TAG="v${PKG_VER}"
+          fi
+
+          echo "RESOLVED_VERSION_TAG=${VERSION_TAG}" >> $GITHUB_ENV
+          cp android/app/build/outputs/apk/debug/app-debug.apk release-artifacts/QuantumSparks-${VERSION_TAG}.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk release-artifacts/QuantumSparks-latest.apk
+          ls -la release-artifacts/
+
+      - name: 📤 Upload Debug APK as Workflow Artifact
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: QuantumSparks-Debug-APK
+          path: release-artifacts/*.apk
+          retention-days: 14
+
+      - name: 🚀 Publish or Update GitHub Release
+        if: success() && (startsWith(github.ref, 'refs/tags/') || github.event_name == 'release' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.create_release == true))
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-artifacts/*.apk
+          name: Quantum Sparks ${{ env.RESOLVED_VERSION_TAG }}
+          tag_name: ${{ env.RESOLVED_VERSION_TAG }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

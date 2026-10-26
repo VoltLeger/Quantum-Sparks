@@ -1,0 +1,6 @@
+{
+  "name": "Quantum Sparks: Tactical CCG",
+  "description": "Tactical 2-player CCG featuring 4-round matches, Quantum Spark resource mechanics, 5 clan synergies, star-tier limits, and interactive battle resolver.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
