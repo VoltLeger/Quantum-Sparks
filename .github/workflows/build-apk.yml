@@ -99,7 +99,6 @@ jobs:
         run: |
           mkdir -p release-artifacts
           
-          # Определение версии и тега (ровно один релиз)
           VERSION_TAG="${{ github.event.release.tag_name }}"
           if [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "null" ]; then
             if [ -n "${{ inputs.release_tag }}" ]; then
@@ -112,7 +111,6 @@ jobs:
 
           echo "RESOLVED_VERSION_TAG=${VERSION_TAG}" >> $GITHUB_ENV
 
-          # Поиск собранного APK
           APK_FILE=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -n 1)
           if [ -z "$APK_FILE" ] || [ ! -f "$APK_FILE" ]; then
             echo "::error::Не удалось найти собранный APK файл!"
