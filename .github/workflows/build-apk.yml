@@ -1,26 +1,19 @@
 name: Build & Release Debug APK
 
 on:
-  push:
-    branches:
-      - '**'
-    tags:
-      - '**'
-  pull_request:
   release:
-    types: [published, created, edited, released]
+    types: [published]
   workflow_dispatch:
     inputs:
-      create_release:
-        description: 'Create or update a GitHub Release for this run'
-        required: false
-        default: true
-        type: boolean
       release_tag:
-        description: 'Tag for the release (e.g. v1.2.0)'
+        description: 'Тег для ручной сборки релиза (например: v1.2.0)'
         required: false
         default: 'v1.2.0'
         type: string
+
+concurrency:
+  group: release-apk-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -35,7 +28,6 @@ jobs:
       packages: write
     env:
       NODE_OPTIONS: "--no-deprecation"
-      ACTIONS_RUNNER_FORCE_NODE24: "true"
 
     steps:
       - name: 📥 Checkout repository
@@ -60,7 +52,7 @@ jobs:
         run: |
           npx cap sync android
 
-      - name: ☕ Set up JDK 21 (v5)
+      - name: ☕ Set up JDK 21
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
@@ -68,15 +60,14 @@ jobs:
 
       - name: 🐘 Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          build-root-directory: android
 
-      - name: 📱 Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: 📜 Accept Android SDK Licenses & Install Components
+      - name: 📜 Accept Android SDK Licenses
         run: |
           mkdir -p "$ANDROID_HOME/licenses" || true
-          yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" || true
+          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > "$ANDROID_HOME/licenses/android-sdk-license" || true
+          echo "84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_HOME/licenses/android-sdk-preview-license" || true
 
       - name: 🔑 Prepare environment & debug keystore
         run: |
@@ -91,27 +82,35 @@ jobs:
       - name: 🏗️ Build Debug APK with Gradle
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon --no-configuration-cache --stacktrace --console=plain -Dorg.gradle.workers.max=2 -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=512m"
+          ./gradlew assembleDebug --stacktrace
 
       - name: 📦 Prepare APK for distribution
         run: |
           mkdir -p release-artifacts
-          VERSION_TAG="${{ github.ref_name }}"
-          if [ "${{ github.event_name }}" = "release" ]; then
-            VERSION_TAG="${{ github.event.release.tag_name }}"
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.release_tag }}" ]; then
-            VERSION_TAG="${{ inputs.release_tag }}"
-          fi
-
-          # Если пуш в ветку (main, master и т.д.) - извлекаем версию из package.json
-          if [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "main" ] || [ "$VERSION_TAG" = "master" ] || [[ "$VERSION_TAG" != v* ]]; then
-            PKG_VER=$(node -p "require('./package.json').version || '1.2.0'")
-            VERSION_TAG="v${PKG_VER}"
+          
+          # Определение версии и тега (ровно один релиз)
+          VERSION_TAG="${{ github.event.release.tag_name }}"
+          if [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "null" ]; then
+            if [ -n "${{ inputs.release_tag }}" ]; then
+              VERSION_TAG="${{ inputs.release_tag }}"
+            else
+              PKG_VER=$(node -p "require('./package.json').version || '1.2.0'")
+              VERSION_TAG="v${PKG_VER}"
+            fi
           fi
 
           echo "RESOLVED_VERSION_TAG=${VERSION_TAG}" >> $GITHUB_ENV
-          cp android/app/build/outputs/apk/debug/app-debug.apk release-artifacts/QuantumSparks-${VERSION_TAG}.apk
-          cp android/app/build/outputs/apk/debug/app-debug.apk release-artifacts/QuantumSparks-latest.apk
+
+          # Поиск собранного APK
+          APK_FILE=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ] || [ ! -f "$APK_FILE" ]; then
+            echo "::error::Не удалось найти собранный APK файл!"
+            exit 1
+          fi
+
+          echo "Найден APK: $APK_FILE"
+          cp "$APK_FILE" release-artifacts/QuantumSparks-${VERSION_TAG}.apk
+          cp "$APK_FILE" release-artifacts/QuantumSparks-latest.apk
           ls -la release-artifacts/
 
       - name: 📤 Upload Debug APK as Workflow Artifact
@@ -123,7 +122,6 @@ jobs:
           retention-days: 14
 
       - name: 🚀 Publish or Update GitHub Release
-        if: success() && (startsWith(github.ref, 'refs/tags/') || github.event_name == 'release' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.create_release == true))
         uses: softprops/action-gh-release@v2
         with:
           files: release-artifacts/*.apk
