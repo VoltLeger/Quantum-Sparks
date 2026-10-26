@@ -1,6 +1,10 @@
 name: Build & Release Debug APK
 
 on:
+  push:
+    branches:
+      - main
+      - master
   release:
     types: [published]
   workflow_dispatch:
@@ -48,8 +52,12 @@ jobs:
         run: |
           npm run build
 
-      - name: 📲 Sync Capacitor Android Platform
+      - name: 📲 Prepare Capacitor Android Platform
         run: |
+          if [ ! -d "android" ]; then
+            echo "Папка android не найдена, инициализируем платформу Android..."
+            npx cap add android
+          fi
           npx cap sync android
 
       - name: ☕ Set up JDK 21
@@ -82,7 +90,7 @@ jobs:
       - name: 🏗️ Build Debug APK with Gradle
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --stacktrace --no-daemon -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m"
 
       - name: 📦 Prepare APK for distribution
         run: |
@@ -122,6 +130,7 @@ jobs:
           retention-days: 14
 
       - name: 🚀 Publish or Update GitHub Release
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           files: release-artifacts/*.apk
