@@ -6,11 +6,55 @@
 import { Card, ClanId } from '../types/game';
 
 export const CARD_IMAGES: Record<ClanId, string> = {
-  titans: '/src/assets/images/card_titan_goliath_1792752389075.jpg',
-  astral_guardians: '/src/assets/images/card_astral_cleaver_1792752389230.jpg',
-  technocrats: '/src/assets/images/card_techno_inverter_1792752390239.jpg',
-  shadow_walkers: '/src/assets/images/card_shadow_assassin_1792752390188.jpg',
-  syndicate_of_chaos: '/src/assets/images/card_chaos_dreadnought_1792752390294.jpg',
+  titans: '/assets/images/card_titan_goliath_1792752389075.jpg',
+  astral_guardians: '/assets/images/card_quantum_archmage_1793011674690.jpg',
+  technocrats: '/assets/images/card_plasma_sniper_1793011673233.jpg',
+  shadow_walkers: '/assets/images/card_neon_rogue_1793011674518.jpg',
+  syndicate_of_chaos: '/assets/images/card_cyber_brawler_1793011672137.jpg',
+};
+
+export const CARD_SPECIFIC_ARTWORKS: Record<string, string> = {
+  // Titans
+  harmonic_resonator: '/assets/images/card_titan_goliath_1792752389075.jpg',
+  goliath_vanguard: '/assets/images/card_titan_goliath_1792752389075.jpg',
+  omurtag: '/assets/images/card_cyber_brawler_1793011672137.jpg',
+  tervel: '/assets/images/card_cyber_brawler_1793011672137.jpg',
+  lord_oon_ld: '/assets/images/avatar_player_hero_1792750526736.jpg',
+  hammer_crusher: '/assets/images/card_cyber_brawler_1793011672137.jpg',
+  bastion_recruit: '/assets/images/avatar_player_hero_1792750526736.jpg',
+
+  // Astral Guardians
+  phase_cleaver: '/assets/images/card_astral_cleaver_1792752389230.jpg',
+  void_siphon: '/assets/images/card_quantum_archmage_1793011674690.jpg',
+  fomalhaut_ld: '/assets/images/card_quantum_archmage_1793011674690.jpg',
+  astral_seer: '/assets/images/card_quantum_archmage_1793011674690.jpg',
+  cerebrah: '/assets/images/card_quantum_archmage_1793011674690.jpg',
+  nebula_stalker: '/assets/images/card_astral_cleaver_1792752389230.jpg',
+
+  // Technocrats
+  nanite_overmind: '/assets/images/card_techno_inverter_1792752390239.jpg',
+  chrono_inverter: '/assets/images/card_techno_inverter_1792752390239.jpg',
+  tesla_matrix: '/assets/images/card_plasma_sniper_1793011673233.jpg',
+  cyber_synthesizer: '/assets/images/card_plasma_sniper_1793011673233.jpg',
+  wilo_ld: '/assets/images/card_plasma_sniper_1793011673233.jpg',
+  flux_artificer: '/assets/images/card_techno_inverter_1792752390239.jpg',
+  micro_drone: '/assets/images/card_plasma_sniper_1793011673233.jpg',
+
+  // Shadow Walkers
+  void_stalker: '/assets/images/card_shadow_assassin_1792752390188.jpg',
+  nightfall_assassin: '/assets/images/card_neon_rogue_1793011674518.jpg',
+  dark_nunavik: '/assets/images/card_neon_rogue_1793011674518.jpg',
+  phantom_wraith: '/assets/images/card_shadow_assassin_1792752390188.jpg',
+  smoke_specter: '/assets/images/card_neon_rogue_1793011674518.jpg',
+  covert_operative: '/assets/images/card_neon_rogue_1793011674518.jpg',
+
+  // Syndicate of Chaos
+  chaos_dreadnought: '/assets/images/card_chaos_dreadnought_1792752390294.jpg',
+  singularity_beast: '/assets/images/card_chaos_dreadnought_1792752390294.jpg',
+  entropy_weaver: '/assets/images/avatar_opponent_legend_1792750526470.jpg',
+  raaz: '/assets/images/card_chaos_dreadnought_1792752390294.jpg',
+  plasma_berserker: '/assets/images/card_cyber_brawler_1793011672137.jpg',
+  chaos_imp: '/assets/images/avatar_opponent_legend_1792750526470.jpg',
 };
 
 const RAW_CARDS: Card[] = [
@@ -711,5 +755,5 @@ const RAW_CARDS: Card[] = [
 
 export const CARDS: Card[] = RAW_CARDS.map(card => ({
   ...card,
-  imageUrl: CARD_IMAGES[card.clanId],
+  imageUrl: CARD_SPECIFIC_ARTWORKS[card.id] || CARD_IMAGES[card.clanId],
 }));

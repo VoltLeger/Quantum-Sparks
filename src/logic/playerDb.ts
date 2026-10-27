@@ -36,12 +36,12 @@ const STORAGE_KEY_DB = 'quantum_sparks_players_v1';
 const STORAGE_KEY_ACTIVE_ID = 'quantum_sparks_active_player_id_v1';
 
 export const STARTER_AVATARS = [
-  'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=160&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=160&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=160&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=160&auto=format&fit=crop&q=80',
+  '/assets/images/avatar_player_hero_1792750526736.jpg',
+  '/assets/images/card_cyber_brawler_1793011672137.jpg',
+  '/assets/images/card_plasma_sniper_1793011673233.jpg',
+  '/assets/images/card_neon_rogue_1793011674518.jpg',
+  '/assets/images/card_quantum_archmage_1793011674690.jpg',
+  '/assets/images/avatar_opponent_legend_1792750526470.jpg',
 ];
 
 export function getRankTitle(elo: number): string {
@@ -308,6 +308,10 @@ export class PlayerDatabase {
     return JSON.stringify(db, null, 2);
   }
 
+  public static exportToJson(): string {
+    return this.exportDatabase();
+  }
+
   public static importDatabase(jsonStr: string): boolean {
     try {
       const parsed = JSON.parse(jsonStr);
@@ -323,6 +327,10 @@ export class PlayerDatabase {
     } catch {
       return false;
     }
+  }
+
+  public static importFromJson(jsonStr: string): boolean {
+    return this.importDatabase(jsonStr);
   }
 
   public static deletePlayer(playerId: string): void {

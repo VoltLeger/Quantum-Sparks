@@ -79,21 +79,21 @@ jobs:
           yes | "$ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager" --licenses || true
           "$ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "platforms;android-36" "build-tools;35.0.0" "build-tools;36.0.0" || true
 
-      - name: 🔑 Prepare environment & debug keystore
+      - name: 🔑 Prepare environment & permanent signing keystore
         run: |
           touch .env
-          mkdir -p ~/.android
-          if [ ! -f ~/.android/debug.keystore ]; then
-            keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
-          fi
           mkdir -p android/app/libs android/capacitor-cordova-android-plugins/src/main/libs
-          if [ ! -f "android/app/debug.keystore" ]; then
-            cp ~/.android/debug.keystore android/app/debug.keystore || true
+          if [ ! -f "android/app/quantum_sparks.keystore" ]; then
+            echo "Восстановление постоянного keystore из защищенной сигнатуры..."
+            echo "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" | base64 -d > android/app/quantum_sparks.keystore
           fi
           sed -i -e 's/\r$//' android/gradlew || true
           chmod +x android/gradlew
 
-      - name: 🏗️ Build Debug APK with Gradle
+      - name: 🏗️ Build Debug APK with Gradle (Permanent Sign & Auto VersionCode)
+        env:
+          VERSION_CODE: ${{ github.run_number + 120 }}
+          VERSION_NAME: ${{ env.RESOLVED_VERSION_TAG }}
         run: |
           cd android
           ./gradlew assembleDebug --stacktrace --no-daemon --console=plain -Dorg.gradle.workers.max=2 -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m"

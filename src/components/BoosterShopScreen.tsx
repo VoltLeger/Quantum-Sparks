@@ -16,6 +16,7 @@ interface BoosterShopScreenProps {
   playerCrystals: number;
   onPurchaseBooster: (costCredits: number, costCrystals: number, cardsAdded: Card[]) => void;
   onOpenDeckBuilder?: () => void;
+  onBackToHub?: () => void;
 }
 
 export interface BoosterPackInfo {
@@ -91,15 +92,22 @@ export const BoosterShopScreen: React.FC<BoosterShopScreenProps> = ({
   playerCrystals,
   onPurchaseBooster,
   onOpenDeckBuilder,
+  onBackToHub,
 }) => {
   const [activeTab, setActiveTab] = useState<'boosters' | 'market'>('boosters');
   const [unpackedCards, setUnpackedCards] = useState<Card[] | null>(null);
   const [currentPackName, setCurrentPackName] = useState<string>('');
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
+
+  const showNotification = (msg: string) => {
+    setStatusNotice(msg);
+    setTimeout(() => setStatusNotice(null), 3000);
+  };
 
   // Открытие бустера
   const handleBuyPack = (pack: BoosterPackInfo) => {
     if (playerCredits < pack.costCredits || playerCrystals < pack.costCrystals) {
-      alert('Недостаточно ресурсов для покупки этого бустера!');
+      showNotification('Недостаточно ресурсов для покупки этого бустера!');
       return;
     }
 
@@ -124,19 +132,38 @@ export const BoosterShopScreen: React.FC<BoosterShopScreenProps> = ({
   // Покупка на рынке
   const handleBuyMarketCard = (card: Card, price: number) => {
     if (playerCredits < price) {
-      alert('Недостаточно кредитов для покупки карты на рынке!');
+      showNotification('Недостаточно кредитов для покупки карты на рынке!');
       return;
     }
     sound.playVictory();
     confetti({ particleCount: 60, spread: 50, origin: { y: 0.6 } });
     onPurchaseBooster(price, 0, [card]);
-    alert(`Карта «${card.name}» успешно приобретена и добавлена в вашу коллекцию!`);
+    showNotification(`Карта «${card.name}» успешно приобретена и добавлена в вашу коллекцию!`);
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 py-6 font-sans select-none">
+    <div className="w-full max-w-6xl mx-auto px-4 py-6 font-sans select-none space-y-4">
+      {/* Верхняя навигация и кнопка возврата в Хаб */}
+      <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-800">
+        {onBackToHub && (
+          <button
+            type="button"
+            onClick={onBackToHub}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+          >
+            <span>⬅ Назад в Хаб</span>
+          </button>
+        )}
+
+        {statusNotice && (
+          <div className="px-3 py-1 rounded-xl bg-amber-500/20 border border-amber-400/50 text-amber-300 text-xs font-bold animate-pulse">
+            {statusNotice}
+          </div>
+        )}
+      </div>
+
       {/* Шапка магазина с балансом */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/40 text-xs font-mono font-bold uppercase">

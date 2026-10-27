@@ -13,7 +13,7 @@ import { sound } from '../logic/sound';
 import confetti from 'canvas-confetti';
 import {
   Users, Swords, Zap, Heart, Shield, RefreshCw, Send, CheckCircle2,
-  Copy, Play, ArrowLeft, Trophy, Flame, Sparkles
+  Copy, Play, ArrowLeft, Trophy, Flame, Sparkles, Lock
 } from 'lucide-react';
 
 interface MultiplayerPvPScreenProps {
@@ -21,6 +21,8 @@ interface MultiplayerPvPScreenProps {
   playerDeck: Deck;
   onBackToHub: () => void;
   onUpdatePlayer: (updated: PlayerRecord) => void;
+  isCampaignCompleted?: boolean;
+  onGoToCampaign?: () => void;
 }
 
 interface PeerPlayer {
@@ -43,6 +45,8 @@ export const MultiplayerPvPScreen: React.FC<MultiplayerPvPScreenProps> = ({
   playerDeck,
   onBackToHub,
   onUpdatePlayer,
+  isCampaignCompleted = false,
+  onGoToCampaign,
 }) => {
   // Состояние лобби / комнаты
   const [roomState, setRoomState] = useState<'lobby' | 'searching' | 'in_match' | 'match_end'>('lobby');
@@ -421,6 +425,71 @@ export const MultiplayerPvPScreen: React.FC<MultiplayerPvPScreenProps> = ({
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };
+
+  // Если кампания не пройдена (меньше 10 карт) - сетевые бои тестеров заблокированы
+  if (!isCampaignCompleted) {
+    const cardProgress = Math.min(10, playerProfile.unlockedCardIds.length);
+    const progressPercent = Math.min(100, Math.round((cardProgress / 10) * 100));
+
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-slate-950 text-slate-100">
+        <div className="max-w-xl w-full bg-slate-900 border-2 border-amber-500/50 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-center">
+          <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400 shadow-inner">
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/30">
+              Доступ Ограничен
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black text-white">
+              Сетевые Бои Тестеров (PvP)
+            </h2>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              Сетевой режим дуэлей требует подготовленную колоду. Пройдите вступительную кампанию из 4 глав, чтобы открыть свои первые 10 карт и освоить боевую формулу!
+            </p>
+          </div>
+
+          {/* Прогресс открытия карт */}
+          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-400">Собрано карт для допуска:</span>
+              <span className="text-amber-400 font-mono text-sm">{cardProgress} / 10 карт ({progressPercent}%)</span>
+            </div>
+            <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-500"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <div className="text-[11px] text-slate-400">
+              {cardProgress >= 10 ? 'Требование выполнено! Обновите статус.' : `Осталось получить еще ${10 - cardProgress} карт в главах Кампании.`}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+            {onGoToCampaign && (
+              <button
+                type="button"
+                onClick={onGoToCampaign}
+                className="w-full sm:flex-1 py-3 px-5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/20 cursor-pointer flex items-center justify-center gap-2 transition-all transform active:scale-95"
+              >
+                <Swords className="w-4 h-4" />
+                Пройти Вступительную Кампанию
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onBackToHub}
+              className="w-full sm:w-auto py-3 px-5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm cursor-pointer transition-colors"
+            >
+              В Главный Хаб
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-slate-950 text-slate-100 p-4 sm:p-6 select-none">

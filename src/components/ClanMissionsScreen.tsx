@@ -29,6 +29,7 @@ interface ClanMissionsScreenProps {
   completedMissionIds: string[];
   onClaimMission: (missionId: string, credits: number, crystals: number, cardId?: string) => void;
   onGoToBattle?: () => void;
+  onBackToHub?: () => void;
 }
 
 export const INITIAL_CLAN_MISSIONS: ClanMission[] = [
@@ -172,6 +173,7 @@ export const ClanMissionsScreen: React.FC<ClanMissionsScreenProps> = ({
   completedMissionIds,
   onClaimMission,
   onGoToBattle,
+  onBackToHub,
 }) => {
   const [selectedClan, setSelectedClan] = useState<ClanId | 'all'>('all');
 
@@ -187,9 +189,22 @@ export const ClanMissionsScreen: React.FC<ClanMissionsScreenProps> = ({
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 py-6 font-sans select-none">
+    <div className="w-full max-w-6xl mx-auto px-4 py-6 font-sans select-none space-y-4">
+      {/* Кнопка возврата в Хаб */}
+      {onBackToHub && (
+        <div className="pb-3 border-b border-slate-800">
+          <button
+            type="button"
+            onClick={onBackToHub}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+          >
+            <span>⬅ Назад в Хаб</span>
+          </button>
+        </div>
+      )}
+
       {/* Заголовок */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40 text-xs font-mono font-bold uppercase">

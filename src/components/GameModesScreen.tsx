@@ -231,74 +231,26 @@ export const GameModesScreen: React.FC<GameModesScreenProps> = ({
   const pvpModes = modesList.filter(m => m.category === 'pvp');
 
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative shadow-2xl border-x border-slate-900 font-sans select-none overflow-x-hidden">
+    <div className="w-full max-w-5xl mx-auto px-4 py-4 min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative font-sans select-none space-y-4">
       {/* =====================================================================
-          1. ВЕРХНЯЯ ПАНЕЛЬ (TOP BAR - КАК НА СКРИНШОТЕ)
+          1. ВЕРХНЯЯ ПАНЕЛЬ С КНОПКОЙ «НАЗАД В ХАБ»
       ====================================================================== */}
-      <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md px-3.5 py-2.5 border-b border-slate-800 shadow-md">
-        <div className="flex items-center justify-between gap-2">
-          {/* Слева: Аватар и профиль */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-amber-600 via-amber-700 to-slate-900 p-0.5 border-2 border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.35)] shrink-0 flex items-center justify-center cursor-pointer">
-              <span className="font-black text-2xl text-amber-200">?</span>
-              <span className="absolute -bottom-1 -right-1 px-1 py-0.2 bg-amber-500 text-slate-950 text-[9px] font-black rounded-md font-mono">
-                75
-              </span>
-            </div>
+      <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900 border border-slate-800 shadow-md">
+        <button
+          type="button"
+          onClick={() => onNavigateTab('hub')}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+        >
+          <span>⬅ Назад в Хаб</span>
+        </button>
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-sm text-white truncate tracking-tight">
-                  Likedarck
-                </span>
-              </div>
-              <div className="text-[11px] text-slate-400 font-medium truncate flex items-center gap-1">
-                <span>Master</span>
-                <span>·</span>
-                <span className="text-amber-400/90 font-mono">Ур. 75</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Справа: Счетчики ресурсов */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Квантовые искры */}
-            <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-full border border-cyan-500/40 shadow-sm" title="Квантовые искры">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-300 fill-cyan-400 animate-pulse" />
-              <span className="text-xs font-black font-mono text-cyan-300 tabular-nums">
-                12
-              </span>
-            </div>
-
-            {/* Золото */}
-            <div className="hidden sm:flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-full border border-amber-500/30">
-              <Coins className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-xs font-bold font-mono text-amber-300 tabular-nums">
-                20.9M
-              </span>
-            </div>
-
-            {/* Кристаллы */}
-            <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-full border border-purple-500/30">
-              <Gem className="w-3.5 h-3.5 text-purple-400" />
-              <span className="text-xs font-bold font-mono text-purple-300 tabular-nums">
-                109
-              </span>
-            </div>
-
-            {/* Почта ✉️ */}
-            <div className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 relative">
-              <Mail className="w-4 h-4" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-rose-500" />
-            </div>
-
-            {/* Меню ☰ */}
-            <div className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
-              <Menu className="w-4 h-4" />
-            </div>
-          </div>
+        <div className="text-right font-mono text-xs">
+          <span className="text-slate-400">Боевой отряд: </span>
+          <strong className="text-white">{squadCards.length}/4</strong>
+          <span> · </span>
+          <strong className="text-amber-400">{squadStars}★</strong>
         </div>
-      </header>
+      </div>
 
       {/* =====================================================================
           2. СПИСОК РЕЖИМОВ (ТОЧНО ПО СКРИНШОТУ С КАРТОЧКАМИ)

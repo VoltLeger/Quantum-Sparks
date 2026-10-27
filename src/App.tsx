@@ -15,35 +15,53 @@ import { ClanMissionsScreen } from './components/ClanMissionsScreen';
 import { BoosterShopScreen } from './components/BoosterShopScreen';
 import { DailyRewardsModal } from './components/DailyRewardsModal';
 import { StarterClanModal } from './components/StarterClanModal';
-import { AuthProfileModal } from './components/AuthProfileModal';
+import { PlayerProfileModal } from './components/PlayerProfileModal';
+import { GameSettingsModal } from './components/GameSettingsModal';
+import { StarterCampaignScreen } from './components/StarterCampaignScreen';
+import { OrientationBanner } from './components/OrientationBanner';
 import { SandboxResolver } from './components/SandboxResolver';
 import { TechDocumentation } from './components/TechDocumentation';
+import { InitialRegistrationModal } from './components/InitialRegistrationModal';
 import { Deck, Card, ClanId } from './types/game';
-import { PlayerRecord, PlayerDatabase } from './logic/playerDb';
+import { PlayerRecord, PlayerDatabase, getStarterDeckForClan } from './logic/playerDb';
+import { SettingsDatabase } from './logic/settingsDb';
+import { CARDS } from './data/cards';
+import { sound } from './logic/sound';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('hub');
-  const [isMuted, setIsMuted] = useState<boolean>(false);
 
-  // Профиль активного игрока из локальной БД
+  // Persistent settings from database
+  const initialSettings = SettingsDatabase.loadSettings();
+  const [isMuted, setIsMuted] = useState<boolean>(initialSettings.isMuted);
+  const [combatSpeed, setCombatSpeed] = useState<'normal' | 'fast'>(initialSettings.combatSpeed);
+
+  // Active player profile from local database
   const [playerProfile, setPlayerProfile] = useState<PlayerRecord>(() => PlayerDatabase.getActivePlayer());
 
-  // Модальные окна
+  // Registration modal state: show on first launch if not yet registered
+  const [isInitialRegistrationOpen, setIsInitialRegistrationOpen] = useState<boolean>(() => {
+    const hasRegistered = localStorage.getItem('quantum_sparks_player_registered_v1');
+    return !hasRegistered;
+  });
+
+  // Modals
   const [isDailyRewardsOpen, setIsDailyRewardsOpen] = useState<boolean>(false);
   const [isStarterClanModalOpen, setIsStarterClanModalOpen] = useState<boolean>(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
 
-  // Ежедневный вход (7 дней)
+  // Daily login rewards
   const [claimedDays, setClaimedDays] = useState<number[]>([1]);
   const [currentDailyDay, setCurrentDailyDay] = useState<number>(2);
 
-  // Завершенные миссии кланов
+  // Completed missions
   const [completedMissionIds, setCompletedMissionIds] = useState<string[]>([]);
 
-  // Синхронизация текущей боевой колоды игрока
+  // Synchronized current deck
   const [currentDeck, setCurrentDeck] = useState<Deck>(playerProfile.currentDeck);
 
-  // Если игрок только создан и не выбрал клан, открываем выбор стартового клана
+  // If new player without starter clan, show starter clan modal
   useEffect(() => {
     if (!playerProfile.starterClan) {
       setIsStarterClanModalOpen(true);
@@ -53,6 +71,22 @@ export default function App() {
   const handleUpdatePlayerProfile = (updated: PlayerRecord) => {
     setPlayerProfile(updated);
     setCurrentDeck(updated.currentDeck);
+  };
+
+  const handlePlayerRegistered = (newPlayer: PlayerRecord) => {
+    localStorage.setItem('quantum_sparks_player_registered_v1', 'true');
+    setPlayerProfile(newPlayer);
+    setCurrentDeck(newPlayer.currentDeck);
+    setIsInitialRegistrationOpen(false);
+    // Переход к кампании для получения первых 10 карт
+    setActiveTab('campaign');
+  };
+
+  const handleSelectExistingPlayer = (player: PlayerRecord) => {
+    localStorage.setItem('quantum_sparks_player_registered_v1', 'true');
+    setPlayerProfile(player);
+    setCurrentDeck(player.currentDeck);
+    setIsInitialRegistrationOpen(false);
   };
 
   const handleSaveDeck = (updatedDeck: Deck) => {
@@ -67,7 +101,6 @@ export default function App() {
     setActiveTab('arena');
   };
 
-  // Выбор стартового клана (начинаем строго с картами одного клана!)
   const handleSelectStarterClan = (clanId: ClanId) => {
     const updated = PlayerDatabase.selectStarterClan(playerProfile.id, clanId);
     setPlayerProfile(updated);
@@ -75,7 +108,75 @@ export default function App() {
     setIsStarterClanModalOpen(false);
   };
 
-  // Получение ежедневной награды
+  // Claim campaign chapter reward
+  const handleClaimCampaignReward = (
+    chapterId: number,
+    cardIds: string[],
+    credits: number,
+    crystals: number
+  ) => {
+    const newCredits = playerProfile.credits + credits;
+    const newCrystals = playerProfile.crystals + crystals;
+    const newUnlocked = Array.from(new Set([...playerProfile.unlockedCardIds, ...cardIds]));
+
+    // If deck has less than 4 cards, fill it up
+    let newBattleCards = [...currentDeck.battleCardIds];
+    if (newBattleCards.length < 4) {
+      const needed = cardIds.filter(id => !newBattleCards.includes(id));
+      newBattleCards = [...newBattleCards, ...needed].slice(0, 4);
+    }
+
+    const updatedDeck: Deck = {
+      ...currentDeck,
+      cardIds: Array.from(new Set([...currentDeck.cardIds, ...cardIds])),
+      battleCardIds: newBattleCards,
+    };
+
+    const updated = PlayerDatabase.updatePlayerData(playerProfile.id, {
+      credits: newCredits,
+      crystals: newCrystals,
+      unlockedCardIds: newUnlocked,
+      currentDeck: updatedDeck,
+    });
+
+    setPlayerProfile(updated);
+    setCurrentDeck(updatedDeck);
+  };
+
+  // Reset player progress completely to fresh starter state
+  const handleResetProgress = () => {
+    const starterClan: ClanId = 'titans';
+    const starterInfo = getStarterDeckForClan(starterClan);
+
+    const resetPlayer: PlayerRecord = {
+      ...playerProfile,
+      credits: 5000,
+      crystals: 50,
+      elo: 1000,
+      unlockedCardIds: starterInfo.starterCards,
+      currentDeck: {
+        id: 'deck_starter_reset',
+        name: starterInfo.deckName,
+        cardIds: starterInfo.starterCards,
+        battleCardIds: starterInfo.battleCards,
+        starLimit: 22,
+      },
+      stats: {
+        battles: 0,
+        wins: 0,
+        losses: 0,
+        winRate: 0,
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saved = PlayerDatabase.updatePlayerData(playerProfile.id, resetPlayer);
+    setPlayerProfile(saved);
+    setCurrentDeck(saved.currentDeck);
+    setActiveTab('campaign');
+  };
+
+  // Claim daily reward
   const handleClaimDailyReward = (day: number, reward: { credits: number; crystals: number; cardId?: string }) => {
     const newCredits = playerProfile.credits + reward.credits;
     const newCrystals = playerProfile.crystals + reward.crystals;
@@ -97,7 +198,7 @@ export default function App() {
     setClaimedDays(prev => [...prev, day]);
   };
 
-  // Получение награды за клановую миссию
+  // Claim clan mission
   const handleClaimMission = (missionId: string, credits: number, crystals: number, cardId?: string) => {
     const newCredits = playerProfile.credits + credits;
     const newCrystals = playerProfile.crystals + crystals;
@@ -119,7 +220,7 @@ export default function App() {
     setCompletedMissionIds(prev => [...prev, missionId]);
   };
 
-  // Покупка бустера или карты на рынке
+  // Purchase booster or market card
   const handlePurchaseBooster = (costCredits: number, costCrystals: number, cardsAdded: Card[]) => {
     const newCredits = Math.max(0, playerProfile.credits - costCredits);
     const newCrystals = Math.max(0, playerProfile.crystals - costCrystals);
@@ -139,8 +240,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
-      {/* Верхнее меню навигации */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
+      {/* Уведомление о повороте экрана в альбомный режим для мобильных устройств */}
+      <OrientationBanner />
+
+      {/* Единое главное меню навигации */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -148,20 +252,32 @@ export default function App() {
         setIsMuted={setIsMuted}
         playerCredits={playerProfile.credits}
         playerCrystals={playerProfile.crystals}
+        playerSparks={12}
         playerNickname={playerProfile.nickname}
         playerAvatarUrl={playerProfile.avatarUrl}
         playerElo={playerProfile.elo}
         onOpenDailyRewards={() => setIsDailyRewardsOpen(true)}
         onOpenProfile={() => setIsProfileModalOpen(true)}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
       />
 
-      {/* Основной контент */}
+      {/* Основная рабочая область приложения */}
       <main className="flex-1 flex flex-col">
         {activeTab === 'hub' && (
           <MobileUrbanHub
             currentDeck={currentDeck}
-            onStartBattle={() => setActiveTab('modes')}
+            onStartBattle={() => setActiveTab('arena')}
             onNavigateTab={(tab) => setActiveTab(tab)}
+            unlockedCardsCount={playerProfile.unlockedCardIds.length}
+          />
+        )}
+
+        {activeTab === 'campaign' && (
+          <StarterCampaignScreen
+            unlockedCardIds={playerProfile.unlockedCardIds}
+            onClaimCampaignReward={handleClaimCampaignReward}
+            onBackToHub={() => setActiveTab('hub')}
+            onStartDuel={() => setActiveTab('arena')}
           />
         )}
 
@@ -180,6 +296,7 @@ export default function App() {
             onOpenDeckBuilder={() => setActiveTab('deck')}
             onOpenDocs={() => setActiveTab('docs')}
             onBackToHub={() => setActiveTab('hub')}
+            combatSpeed={combatSpeed}
           />
         )}
 
@@ -189,6 +306,8 @@ export default function App() {
             playerDeck={currentDeck}
             onBackToHub={() => setActiveTab('hub')}
             onUpdatePlayer={handleUpdatePlayerProfile}
+            isCampaignCompleted={playerProfile.unlockedCardIds.length >= 10}
+            onGoToCampaign={() => setActiveTab('campaign')}
           />
         )}
 
@@ -207,6 +326,7 @@ export default function App() {
             completedMissionIds={completedMissionIds}
             onClaimMission={handleClaimMission}
             onGoToBattle={() => setActiveTab('arena')}
+            onBackToHub={() => setActiveTab('hub')}
           />
         )}
 
@@ -216,6 +336,7 @@ export default function App() {
             playerCrystals={playerProfile.crystals}
             onPurchaseBooster={handlePurchaseBooster}
             onOpenDeckBuilder={() => setActiveTab('deck')}
+            onBackToHub={() => setActiveTab('hub')}
           />
         )}
 
@@ -232,8 +353,8 @@ export default function App() {
         onClose={playerProfile.starterClan ? () => setIsStarterClanModalOpen(false) : undefined}
       />
 
-      {/* Модальное окно профиля игрока и базы данных */}
-      <AuthProfileModal
+      {/* Модальное окно Профиля Игрока (Личный Кабинет) */}
+      <PlayerProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         currentPlayer={playerProfile}
@@ -241,6 +362,36 @@ export default function App() {
         onOpenStarterClanModal={() => {
           setIsProfileModalOpen(false);
           setIsStarterClanModalOpen(true);
+        }}
+        onOpenDeckBuilder={() => {
+          setIsProfileModalOpen(false);
+          setActiveTab('deck');
+        }}
+        onOpenCampaign={() => {
+          setIsProfileModalOpen(false);
+          setActiveTab('campaign');
+        }}
+        onOpenRegistration={() => {
+          setIsProfileModalOpen(false);
+          setIsInitialRegistrationOpen(true);
+        }}
+        onSwitchPlayer={(player: PlayerRecord) => {
+          handleUpdatePlayerProfile(player);
+        }}
+      />
+
+      {/* Модальное окно Настроек Игры */}
+      <GameSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        isMuted={isMuted}
+        setIsMuted={setIsMuted}
+        combatSpeed={combatSpeed}
+        setCombatSpeed={setCombatSpeed}
+        onResetProgress={handleResetProgress}
+        onOpenCampaign={() => {
+          setIsSettingsModalOpen(false);
+          setActiveTab('campaign');
         }}
       />
 
@@ -253,17 +404,33 @@ export default function App() {
         onClaimDay={handleClaimDailyReward}
       />
 
+      {/* Окно Регистрации / Входа Нового Игрока на Старте */}
+      <InitialRegistrationModal
+        isOpen={isInitialRegistrationOpen}
+        onRegistered={handlePlayerRegistered}
+        onSelectExistingPlayer={handleSelectExistingPlayer}
+        canClose={Boolean(localStorage.getItem('quantum_sparks_player_registered_v1'))}
+        onClose={() => setIsInitialRegistrationOpen(false)}
+      />
+
       {/* Лаконичный футер */}
       <footer className="border-t border-slate-900 bg-slate-950/90 py-4 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-400">Quantum Sparks: Tactical CCG</span>
             <span>·</span>
-            <span className="text-emerald-400 font-mono font-bold">Версия v1.2.0</span>
+            <span className="text-emerald-400 font-mono font-bold">Версия v1.2.1</span>
             <span>·</span>
             <span className="font-mono text-cyan-400">Android APK Auto-Build</span>
           </div>
           <div className="flex items-center gap-4 text-slate-400">
+            <button
+              onClick={() => setActiveTab('campaign')}
+              className="hover:text-amber-400 transition-colors cursor-pointer"
+            >
+              Кампания
+            </button>
+            <span>·</span>
             <button
               onClick={() => setActiveTab('pvp')}
               className="hover:text-rose-400 transition-colors cursor-pointer"

@@ -155,6 +155,7 @@ export const MODE_DECK_PRESETS: ModePresetConfig[] = [
 export const DeckBuilder: React.FC<DeckBuilderProps> = ({
   currentDeck,
   onSaveDeck,
+  onNavigateTab,
 }) => {
   // Активная под-вкладка (Альбом / Предустановки под режимы / Витрина)
   const [activeSubTab, setActiveSubTab] = useState<'album' | 'presets' | 'showcase'>('album');
@@ -258,54 +259,44 @@ export const DeckBuilder: React.FC<DeckBuilderProps> = ({
   });
 
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative shadow-2xl border-x border-slate-900 font-sans select-none overflow-x-hidden">
+    <div className="w-full max-w-5xl mx-auto px-4 py-4 min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative font-sans select-none space-y-4">
       {/* =====================================================================
-          1. ВЕРХНЯЯ ПАНЕЛЬ (TOP BAR - КАК НА СКРИНШОТЕ)
+          1. ВЕРХНЯЯ ПАНЕЛЬ С КНОПКОЙ «НАЗАД В ХАБ» И СТАТУСОМ
       ====================================================================== */}
-      <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md px-3.5 py-2.5 border-b border-slate-800 shadow-md">
-        <div className="flex items-center justify-between gap-2">
-          {/* Слева: Аватар и профиль */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-amber-600 via-amber-700 to-slate-900 p-0.5 border-2 border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.35)] shrink-0 flex items-center justify-center cursor-pointer">
-              <span className="font-black text-2xl text-amber-200">?</span>
-              <span className="absolute -bottom-1 -right-1 px-1 py-0.2 bg-amber-500 text-slate-950 text-[9px] font-black rounded-md font-mono">
-                75
-              </span>
-            </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900 border border-slate-800 shadow-md">
+        <div className="flex items-center gap-3">
+          {onNavigateTab && (
+            <button
+              type="button"
+              onClick={() => onNavigateTab('hub')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4 text-amber-400" />
+              <span>Назад в Хаб</span>
+            </button>
+          )}
 
-            <div className="min-w-0">
-              <span className="font-extrabold text-sm text-white truncate tracking-tight block">
-                Likedarck
-              </span>
-              <span className="text-[11px] text-slate-400 font-medium truncate block">
-                Master · <span className="text-amber-400/90 font-mono">Ур. 75</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Справа: Счетчики ресурсов */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-full border border-cyan-500/40 shadow-sm" title="Квантовые искры">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-300 fill-cyan-400 animate-pulse" />
-              <span className="text-xs font-black font-mono text-cyan-300 tabular-nums">12</span>
-            </div>
-            <div className="hidden sm:flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-full border border-amber-500/30">
-              <Coins className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-xs font-bold font-mono text-amber-300 tabular-nums">20.9M</span>
-            </div>
-            <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-full border border-purple-500/30">
-              <Gem className="w-3.5 h-3.5 text-purple-400" />
-              <span className="text-xs font-bold font-mono text-purple-300 tabular-nums">109</span>
-            </div>
-            <div className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 relative">
-              <Mail className="w-4 h-4" />
-            </div>
-            <div className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
-              <Menu className="w-4 h-4" />
+          <div>
+            <h2 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Layers className="w-4 h-4 text-purple-400" />
+              <span>Конструктор Колод</span>
+            </h2>
+            <div className="text-[11px] text-slate-400 font-mono">
+              В колоде: <strong className="text-white">{deckCardIds.length}</strong>/11 · Отряд: <strong className="text-cyan-300">{battleCardIds.length}</strong>/4 · Звезды: <strong className="text-amber-400">{totalBattleStars}</strong>/{starLimit === 999 ? '∞' : starLimit}★
             </div>
           </div>
         </div>
-      </header>
+
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={!canSave}
+          className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-black text-xs uppercase tracking-wide cursor-pointer transition-all shadow-md flex items-center gap-1.5"
+        >
+          <Check className="w-4 h-4 stroke-[3]" />
+          <span>Сохранить и В Бой</span>
+        </button>
+      </div>
 
       {/* =====================================================================
           2. ПОД-ВКЛАДКИ (АЛЬБОМ / ПРЕДУСТАНОВКИ / ВИТРИНА)
