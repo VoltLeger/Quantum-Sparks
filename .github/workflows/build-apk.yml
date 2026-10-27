@@ -90,29 +90,47 @@ jobs:
           sed -i -e 's/\r$//' android/gradlew || true
           chmod +x android/gradlew
 
+      - name: 🏷️ Resolve Version Name & Auto-increment Version Code
+        run: |
+          VERSION_TAG="${{ github.event.release.tag_name }}"
+          if [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "null" ]; then
+            if [ -n "${{ inputs.release_tag }}" ]; then
+              VERSION_TAG="${{ inputs.release_tag }}"
+            else
+              PKG_VER=$(node -p "require('./package.json').version || '1.2.1'")
+              VERSION_TAG="v${PKG_VER}"
+            fi
+          fi
+
+          # Вычисляем строго возрастающий versionCode: базовое смещение 120 + github.run_number
+          RUN_NUM="${{ github.run_number }}"
+          if [ -z "$RUN_NUM" ]; then RUN_NUM=1; fi
+          CALC_VERSION_CODE=$(( RUN_NUM + 120 ))
+          RAW_VERSION_NAME="${VERSION_TAG#v}"
+
+          echo "RESOLVED_VERSION_TAG=${VERSION_TAG}" >> $GITHUB_ENV
+          echo "VERSION_NAME=${RAW_VERSION_NAME}" >> $GITHUB_ENV
+          echo "VERSION_CODE=${CALC_VERSION_CODE}" >> $GITHUB_ENV
+
+          echo "=================================================="
+          echo "Building APK for Quantum Sparks"
+          echo "Release Tag:  ${VERSION_TAG}"
+          echo "Version Name: ${RAW_VERSION_NAME}"
+          echo "Version Code: ${CALC_VERSION_CODE}"
+          echo "=================================================="
+
       - name: 🏗️ Build Debug APK with Gradle (Permanent Sign & Auto VersionCode)
         env:
-          VERSION_CODE: ${{ github.run_number + 120 }}
-          VERSION_NAME: ${{ env.RESOLVED_VERSION_TAG }}
+          VERSION_CODE: ${{ env.VERSION_CODE }}
+          VERSION_NAME: ${{ env.VERSION_NAME }}
         run: |
+          echo "Building Gradle with VERSION_CODE=${VERSION_CODE} and VERSION_NAME=${VERSION_NAME}"
           cd android
           ./gradlew assembleDebug --stacktrace --no-daemon --console=plain -Dorg.gradle.workers.max=2 -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m"
 
       - name: 📦 Prepare APK for distribution
         run: |
           mkdir -p release-artifacts
-          
-          VERSION_TAG="${{ github.event.release.tag_name }}"
-          if [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "null" ]; then
-            if [ -n "${{ inputs.release_tag }}" ]; then
-              VERSION_TAG="${{ inputs.release_tag }}"
-            else
-              PKG_VER=$(node -p "require('./package.json').version || '1.2.0'")
-              VERSION_TAG="v${PKG_VER}"
-            fi
-          fi
-
-          echo "RESOLVED_VERSION_TAG=${VERSION_TAG}" >> $GITHUB_ENV
 
           APK_FILE=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -n 1)
           if [ -z "$APK_FILE" ] || [ ! -f "$APK_FILE" ]; then
@@ -121,7 +139,7 @@ jobs:
           fi
 
           echo "Найден APK: $APK_FILE"
-          cp "$APK_FILE" release-artifacts/QuantumSparks-${VERSION_TAG}.apk
+          cp "$APK_FILE" "release-artifacts/QuantumSparks-${RESOLVED_VERSION_TAG}.apk"
           cp "$APK_FILE" release-artifacts/QuantumSparks-latest.apk
           ls -la release-artifacts/
 
